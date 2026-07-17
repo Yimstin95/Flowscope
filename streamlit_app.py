@@ -28,6 +28,17 @@ try:
 except ImportError:
     pass
 
+# On Streamlit Community Cloud, secrets are supplied via st.secrets (pasted in
+# the app's dashboard), not a .env file. Bridge it into the environment so the
+# Anthropic SDK (which reads ANTHROPIC_API_KEY from os.environ) finds it either
+# way, without changing any downstream code. st.secrets raises if no secrets
+# file exists at all (e.g. a bare local clone with just .env), so guard it.
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    try:
+        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+    except (FileNotFoundError, KeyError, st.errors.StreamlitAPIException):
+        pass
+
 from flowscope.critic import critique
 from flowscope.pipeline import run_pipeline
 from flowscope.reporter import generate_report, render_report
@@ -81,11 +92,27 @@ with st.sidebar:
     st.header("Input")
     files = _discover_fcs_files()
     if not files:
-        st.error(
-            f"No .fcs files found under {DATA_DIR}. Add the FR-FCM-ZZEB data "
-            "(or run scripts/generate_synthetic_fcs.py for the synthetic demo)."
-        )
+        # Fresh clone / cloud deploy: data/raw/ only ships a .gitkeep (the real
+        # FR-FCM-ZZEB data is git-ignored, ~395MB). Generate the synthetic demo
+        # fixture on first run so the app is usable out of the box.
+        with st.spinner("First run: generating synthetic demo data…"):
+            import subprocess
+            import sys
+
+            script = os.path.join(os.path.dirname(__file__), "scripts", "generate_synthetic_fcs.py")
+            subprocess.run([sys.executable, script], check=True)
+        files = _discover_fcs_files()
+
+    if not files:
+        st.error(f"No .fcs files found under {DATA_DIR} and synthetic generation failed.")
         st.stop()
+
+    if not any("ZZEB" in f for f in files):
+        st.info(
+            "Running on synthetic demo data (no real FR-FCM-ZZEB sample present). "
+            "Drop the real data into `data/raw/FR-FCM-ZZEB/` for the real OMIP-024 sample.",
+            icon="🧪",
+        )
 
     rel_files = [os.path.relpath(f, DATA_DIR) for f in files]
     # Default to the first stained specimen ("Sample*") rather than a

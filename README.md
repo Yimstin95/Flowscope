@@ -157,8 +157,35 @@ flow cytometrists actually use (FlowSOM). See `src/flowscope/clustering.py`.
 
 ## Running
 
+### Quickest — one command
+
 ```bash
-cd Biotechnology/FlowScope
+git clone https://github.com/Yimstin95/Flowscope.git
+cd Flowscope
+./run.sh
+```
+
+`run.sh` finds its own location, creates the `.venv` and installs dependencies on
+first run only, generates the synthetic demo FCS fixture if no data is present yet,
+and starts Streamlit. Safe to re-run any time — later runs just reuse the existing
+`.venv`. It also works if you already have the repo cloned somewhere else, or opened
+as a subfolder inside a larger workspace: run it as an absolute path
+(`/path/to/Flowscope/run.sh`) from anywhere and it still resolves correctly.
+
+### From VS Code, without navigating to the folder
+
+If this repo lives inside a larger multi-project VS Code workspace (as it does for
+the original author, under `Biotechnology/FlowScope/`), a workspace-level task runs
+it with no `cd` and no folder-switching:
+**⇧⌘B** (macOS) / **Ctrl+Shift+B** (Windows/Linux) → runs the **"FlowScope: Run"**
+task from `.vscode/tasks.json` at the workspace root. Or Command Palette →
+**Tasks: Run Task** → **FlowScope: Run**.
+
+### Manual setup (equivalent to `run.sh`, spelled out)
+
+```bash
+git clone https://github.com/Yimstin95/Flowscope.git
+cd Flowscope
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .                 # editable install so `import flowscope` resolves
@@ -173,8 +200,29 @@ The Streamlit app runs the deterministic pipeline (clustering, UMAP, heatmap,
 frequencies) and the deterministic anomaly detection with no key required. The AI
 report — stage-3 interpretation of flagged clusters plus the stage-4 narrative — is
 opt-in behind a button and enabled when `ANTHROPIC_API_KEY` is set (read from the
-git-ignored `.env`); a "build report without AI" fallback produces the deterministic
-report regardless.
+git-ignored `.env`, or from Streamlit secrets when deployed); a "build report
+without AI" fallback produces the deterministic report regardless.
+
+### Deploying a public link (Streamlit Community Cloud)
+
+Anyone with the repo pushed to GitHub can get a shareable `https://*.streamlit.app`
+URL, free, with zero local setup for viewers:
+
+1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
+2. **Create app** → pick this repo, branch `main`, main file path `streamlit_app.py`.
+3. Before deploying, open **Advanced settings → Secrets** and paste:
+   ```toml
+   ANTHROPIC_API_KEY = "sk-ant-..."
+   ```
+   (Only needed if you want the AI report button to work for viewers — the
+   deterministic sections work with no secret at all.)
+4. Deploy. First boot auto-generates the synthetic demo data (the real,
+   git-ignored FR-FCM-ZZEB sample isn't in the repo, so the public deployment
+   runs on synthetic data unless you separately host the real FCS files
+   somewhere the app can fetch them).
+
+This step needs your own GitHub/Streamlit login, so it can't be done for you —
+the four steps above are the whole thing.
 
 The two LLM prompts can also be validated standalone (both need a funded
 `ANTHROPIC_API_KEY`):
