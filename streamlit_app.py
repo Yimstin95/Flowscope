@@ -16,10 +16,21 @@ from __future__ import annotations
 
 import glob
 import os
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+
+# Defensive fallback: the flowscope package (src/flowscope/) is normally made
+# importable via `pip install -e .` (requirements.txt carries a `-e .` line
+# specifically so Streamlit Community Cloud's `pip install -r requirements.txt`
+# picks it up too). If that install step was ever skipped, fall back to adding
+# src/ onto sys.path directly rather than hard-crashing with ModuleNotFoundError.
+try:
+    import flowscope  # noqa: F401
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 try:
     from dotenv import load_dotenv

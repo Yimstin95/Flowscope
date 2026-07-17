@@ -11,3 +11,11 @@ matplotlib
 anthropic
 python-dotenv
 pytest
+
+# The flowscope package itself (src/flowscope/, declared in pyproject.toml).
+# Local dev normally runs `pip install -e .` separately, but Streamlit Community
+# Cloud only runs `pip install -r requirements.txt` -- without this line, Cloud
+# never installs the local package and `from flowscope...` 404s with
+# ModuleNotFoundError. Keep this line for Cloud even though local setups already
+# have it via the explicit `pip install -e .` step.
+-e .
