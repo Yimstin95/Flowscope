@@ -8,3 +8,7 @@ data/raw/*
 .DS_Store
 .pytest_cache/
 *.egg-info/
+
+# Streamlit agent skills (environment-specific symlinks, auto-installed on `streamlit run`)
+.agents/skills/developing-with-streamlit
+.claude/skills/developing-with-streamlit
