@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+streamlit
+flowio
+pandas
+numpy
+scikit-learn
+minisom
+umap-learn
+matplotlib
+anthropic
+python-dotenv
+pytest
