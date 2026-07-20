@@ -18,6 +18,7 @@ from flowscope.panel_interpreter import (
     PanelParameter,
     build_user_message,
     interpret_panel,
+    panel_from_channels,
     panel_from_sample,
 )
 
@@ -75,6 +76,27 @@ def test_panel_from_synthetic_sample_tags_scatter_and_fluorescence():
     assert by_channel["Time"].kind == "scatter/time"
     # Synthetic file has no PnS markers, so fluorescence channels have marker=None
     assert by_channel["CD3-FITC"].kind == "fluorescence"
+
+
+def test_panel_from_channels_tags_kinds_and_passes_markers():
+    channels = ["FSC-A", "SSC-A", "Time", "G610-A", "UV730-A"]
+    markers = {"G610-A": "CD3", "UV730-A": "CD19"}
+    panel = panel_from_channels(channels, markers)
+    by_channel = {p.channel: p for p in panel}
+    # Order and completeness preserved.
+    assert [p.channel for p in panel] == channels
+    # Scatter/time tagged as such; fluorescence channels carry their markers.
+    assert by_channel["FSC-A"].kind == "scatter/time"
+    assert by_channel["Time"].kind == "scatter/time"
+    assert by_channel["G610-A"].kind == "fluorescence"
+    assert by_channel["G610-A"].marker == "CD3"
+    # A channel with no marker mapping is None, not "".
+    assert by_channel["SSC-A"].marker is None
+
+
+def test_panel_from_channels_treats_empty_marker_as_none():
+    panel = panel_from_channels(["G610-A"], {"G610-A": ""})
+    assert panel[0].marker is None
 
 
 def test_build_user_message_lists_markers():

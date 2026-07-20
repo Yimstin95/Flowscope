@@ -15,8 +15,10 @@ Run:  streamlit run streamlit_app.py
 from __future__ import annotations
 
 import glob
+import hashlib
 import os
 import sys
+import tempfile
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,10 +53,12 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
         pass
 
 from flowscope.critic import critique
+from flowscope.panel_interpreter import interpret_panel, panel_from_channels
 from flowscope.pipeline import run_pipeline
 from flowscope.reporter import generate_report, render_report
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "raw")
+UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "flowscope_uploads")
 
 st.set_page_config(page_title="FlowScope", layout="wide")
 
@@ -76,6 +80,23 @@ def _discover_fcs_files() -> list[str]:
     return sorted(glob.glob(os.path.join(DATA_DIR, "**", "*.fcs"), recursive=True))
 
 
+def _save_uploaded_fcs(uploaded) -> str:
+    """Persist an uploaded FCS to a content-hashed temp path and return it.
+
+    Hashing the bytes keeps the path stable across reruns for the same upload,
+    so @st.cache_data-keyed _cached_pipeline(path, ...) hits its cache instead of
+    reprocessing on every button click.
+    """
+    raw = uploaded.getvalue()
+    digest = hashlib.sha256(raw).hexdigest()[:16]
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    path = os.path.join(UPLOAD_DIR, f"{digest}.fcs")
+    if not os.path.exists(path):
+        with open(path, "wb") as fh:
+            fh.write(raw)
+    return path
+
+
 @st.cache_data(show_spinner="Running pipeline (parse → compensate → transform → cluster → UMAP)…")
 def _cached_pipeline(path: str, cofactor: float, subsample_n: int, n_metaclusters: int, seed: int):
     out = run_pipeline(
@@ -92,6 +113,7 @@ def _cached_pipeline(path: str, cofactor: float, subsample_n: int, n_metacluster
         "labels": out.result.labels,
         "umap": out.umap,
         "channels": out.result.channels,
+        "channel_names": out.sample.channel_names,  # all channels incl. scatter, for stage ①
         "markers": out.sample.markers,
         "n_metaclusters": out.result.n_metaclusters,
         "n_events_total": out.sample.events.shape[0],
@@ -125,16 +147,29 @@ with st.sidebar:
             icon="🧪",
         )
 
-    rel_files = [os.path.relpath(f, DATA_DIR) for f in files]
-    # Default to the first stained specimen ("Sample*") rather than a
-    # single-stain compensation control, since the samples are the actual
-    # analysis targets. Falls back to the first file if none match.
-    default_idx = next(
-        (i for i, f in enumerate(rel_files) if "sample" in os.path.basename(f).lower()),
+    # Upload widget: an uploaded file becomes a first-class, default-selected
+    # option alongside the bundled files. Its panel drives stage ① just the same.
+    uploaded = st.file_uploader(
+        "Upload an FCS file", type=["fcs"],
+        help="Your file is processed in-session; nothing is stored server-side beyond a temp copy.",
+    )
+
+    # Map display label → absolute path. Uploaded file is prepended and default.
+    options: dict[str, str] = {}
+    if uploaded is not None:
+        options[f"⬆ {uploaded.name} (uploaded)"] = _save_uploaded_fcs(uploaded)
+    for f in files:
+        options[os.path.relpath(f, DATA_DIR)] = f
+
+    file_labels = list(options)
+    # Default: the uploaded file if present, else the first stained specimen
+    # ("Sample*") rather than a single-stain compensation control.
+    default_idx = 0 if uploaded is not None else next(
+        (i for i, lbl in enumerate(file_labels) if "sample" in os.path.basename(lbl).lower()),
         0,
     )
-    choice = st.selectbox("FCS file", rel_files, index=default_idx)
-    path = os.path.join(DATA_DIR, choice)
+    choice = st.selectbox("FCS file", file_labels, index=default_idx)
+    path = options[choice]
 
     st.header("Parameters")
     cofactor = st.slider("arcsinh cofactor", 5, 500, 150, step=5,
@@ -158,7 +193,19 @@ if "params" not in st.session_state:
     st.info("Pick a file and parameters in the sidebar, then click **Run analysis**.")
     st.stop()
 
-data = _cached_pipeline(*st.session_state["params"])
+try:
+    data = _cached_pipeline(*st.session_state["params"])
+except ValueError as exc:
+    # run_pipeline raises ValueError when an FCS has no embedded compensation
+    # matrix (and no bundled spillover CSV) — common for uploaded exports and
+    # the synthetic fixture. Show guidance instead of a traceback.
+    st.error(
+        f"Could not run the pipeline on this file: {exc}\n\n"
+        "This usually means the FCS has no embedded compensation ($SPILLOVER) "
+        "matrix. FlowScope currently needs one to compensate. Try a file exported "
+        "with its spillover matrix, or one of the bundled samples."
+    )
+    st.stop()
 
 summary = data["summary"]
 labels = data["labels"]
@@ -169,6 +216,46 @@ c1, c2, c3 = st.columns(3)
 c1.metric("Total events", f"{data['n_events_total']:,}")
 c2.metric("Analyzed (subsample)", f"{data['n_sub']:,}")
 c3.metric("Metaclusters", n_meta)
+
+# --- Stage ①: Panel Interpreter — suggested gating strategy (opt-in AI) ------
+st.subheader("① Suggested gating strategy (AI)")
+st.caption(
+    "Reads this sample's marker panel and proposes a hierarchical gating strategy "
+    "an analyst could start from — a suggestion for review, not an applied gate "
+    "and not a diagnostic step. Independent of the clustering below."
+)
+_has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+if not _has_key:
+    st.info(
+        "Set `ANTHROPIC_API_KEY` (git-ignored `.env`, or Streamlit secrets when "
+        "deployed) to enable the gating-strategy suggestion. This step calls the "
+        "Claude API and uses credits.",
+        icon="🔑",
+    )
+if st.button("Suggest gating strategy", disabled=not _has_key,
+             help="Calls the Claude API (uses credits)."):
+    try:
+        panel = panel_from_channels(data["channel_names"], data["markers"])
+        with st.spinner("Proposing a gating strategy from the panel (Claude)…"):
+            steps = interpret_panel(panel, context="Sample analyzed in FlowScope.")
+        st.session_state["gating_steps"] = steps
+    except Exception as exc:  # noqa: BLE001 — surface API/billing errors to the user
+        st.error(f"Gating suggestion failed: {exc}")
+
+if st.session_state.get("gating_steps"):
+    st.dataframe(
+        [
+            {
+                "step": s.get("step"),
+                "marker_pair": " × ".join(s.get("marker_pair", [])),
+                "gate_type": s.get("gate_type"),
+                "rationale": s.get("rationale"),
+            }
+            for s in st.session_state["gating_steps"]
+        ],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 st.subheader("UMAP embedding, colored by cluster")
 st.caption(

@@ -50,16 +50,26 @@ class PanelParameter:
         return f"{self.marker} ({self.channel})" if self.marker else self.channel
 
 
-def panel_from_sample(sample) -> list[PanelParameter]:
-    """Build the panel description from a parsed FCSSample (see executor.py).
+def panel_from_channels(
+    channel_names: list[str], markers: dict[str, str]
+) -> list[PanelParameter]:
+    """Build the panel from channel names + a {channel: marker} mapping.
 
-    Includes scatter/time channels (gating starts on scatter) as well as the
-    fluorescence channels with their marker labels.
+    Kept separate from `panel_from_sample` so callers that only hold the channel
+    list and marker dict (e.g. a cached pipeline result, without the full
+    FCSSample) can build the panel too — and so the logic is unit-testable
+    without an FCS dependency. Includes scatter/time channels (gating starts on
+    scatter) alongside the fluorescence channels with their marker labels.
     """
     return [
-        PanelParameter(channel=ch, marker=sample.markers.get(ch) or None)
-        for ch in sample.channel_names
+        PanelParameter(channel=ch, marker=markers.get(ch) or None)
+        for ch in channel_names
     ]
+
+
+def panel_from_sample(sample) -> list[PanelParameter]:
+    """Build the panel description from a parsed FCSSample (see executor.py)."""
+    return panel_from_channels(sample.channel_names, sample.markers)
 
 
 # --- Tool definition: forces the model to emit structured gating steps -------
