@@ -100,6 +100,22 @@ fixture (`tests/test_executor.py` uses it for the main test suite; a separate
 set of tests runs against the real `Sample1.fcs` when present, but is skipped
 otherwise since the real data isn't committed).
 
+### Second real dataset: `flowio-demo/`
+
+**Accession: `100715.fcs` from [whitews/FlowIO](https://github.com/whitews/FlowIO)**
+(the same Python library FlowScope uses to parse FCS files) — a real BD FACSAria
+run with a 13-color T-cell/B-cell/NK panel (KI67, CD3, CD28, CD45RO, CD8, CD4,
+CD57, viability dye/CD14, CCR5, CD19, CD27, CCR7, CD127; 65,016 events; embedded
+spillover matrix). BSD-3 licensed, so it's committed directly to the repo at
+`data/raw/flowio-demo/pbmc_13color_facsaria.fcs` (4MB — small enough, and legally
+clear, to check in rather than git-ignore) — see `data/raw/flowio-demo/NOTICE.md`
+for the full attribution.
+
+Added as a second real example specifically because it downloads with a plain
+`curl`/`git clone` — no CAPTCHA, no login wall, no expired TLS certificate —
+unlike flowrepository.org above. It shows up automatically in the Streamlit
+file picker and needs no extra setup.
+
 ## Architecture
 
 Deterministic computation (compensation, transforms, clustering) and LLM
@@ -151,6 +167,38 @@ Purple = LLM stages (①③④), green = deterministic (②). Text version:
 Only stages ①③④ call the Claude API (Anthropic Python SDK). Stage ② is pure
 Python with no LLM involvement — clustering and dimensionality reduction are
 deterministic, not delegated to a language model.
+
+### Why the report also acts as a receipt
+
+**The problem, in plain terms:** run the same analysis twice, tweak one setting
+in between, and six months later nobody — including the person who ran it —
+can say for certain which settings produced which result. This isn't a niche
+complaint: it's the single most-cited data-management problem in flow cytometry
+literature — parameters get changed without being written down anywhere, so the
+result can't be reproduced, and can't be defended if a regulator or reviewer
+later asks "how did you get this number?" (see e.g.
+[pharmaphorum's write-up on flow cytometry data management](https://pharmaphorum.com/rd/overcoming-6-data-management-challenges-flow-cytometry)).
+
+**What FlowScope does about it:** every report includes an **Analysis
+Provenance** section — automatically, with no extra step — recording exactly
+what produced that specific result:
+
+- which file, identified by a cryptographic fingerprint (SHA-256) of the file's
+  bytes, not just its filename (so "Sample1.fcs" from last week and
+  "Sample1.fcs" from today can't be silently confused)
+- every setting that affects the outcome — the transform strength (cofactor),
+  how many events were sampled, how many populations it was asked to find, and
+  the random seed
+- which version of FlowScope produced it, and whether an AI model was involved
+  at all
+
+**Why that's the point, not a footnote:** anyone — the same analyst next year,
+a labmate, a reviewer — can take that report, plug the exact same settings
+back into FlowScope, and get the bit-for-bit identical result. That turns "I
+think I used roughly these settings" into "here is the receipt." It costs
+nothing extra to generate (it's plain bookkeeping, not an AI call), which is
+exactly why it's a comparatively low-risk, high-value addition versus something
+like a bigger UI overhaul.
 
 **Why FlowSOM-style over scanpy+Leiden:** OMIP-024 samples have 300k–400k+
 events each. A Leiden partition on a KNN graph of that many cells is slow and
@@ -218,10 +266,11 @@ URL, free, with zero local setup for viewers:
    ```
    (Only needed if you want the AI report button to work for viewers — the
    deterministic sections work with no secret at all.)
-4. Deploy. First boot auto-generates the synthetic demo data (the real,
-   git-ignored FR-FCM-ZZEB sample isn't in the repo, so the public deployment
-   runs on synthetic data unless you separately host the real FCS files
-   somewhere the app can fetch them).
+4. Deploy. The public deployment ships with the real `flowio-demo` sample
+   (committed to the repo) plus an auto-generated synthetic fixture on first
+   boot — real data works out of the box, no extra hosting needed. The much
+   larger FR-FCM-ZZEB dataset (~395MB, git-ignored) isn't included; add it
+   yourself under `data/raw/FR-FCM-ZZEB/` if you want it in your own deployment.
 
 This step needs your own GitHub/Streamlit login, so it can't be done for you —
 the four steps above are the whole thing.
@@ -283,6 +332,16 @@ python scripts/validate_critic.py              # stages 3 end-to-end on a real s
       real Sample1.fcs
 - [x] README finalization — screenshots (`docs/`, `scripts/make_figures.py`),
       Mermaid architecture diagram, code map, and the limitations section below
+- [x] Second real dataset (`data/raw/flowio-demo/`) + Analysis Provenance report
+      section — a second real, reliably-downloadable dataset (from FlowIO's own
+      GitHub repo, no CAPTCHA/login needed) plus a reproducibility/audit-trail
+      section added to every report (file checksum, exact parameters, pipeline
+      version — see "Why the report also acts as a receipt" above), directly
+      addressing the reproducibility problem most cited in flow cytometry data
+      management literature. Also fixed a latent crash: selecting the synthetic
+      demo file in the UI raised `ValueError` because its spillover matrix
+      (external CSV, unlike the other datasets) was never passed through —
+      caught while wiring up the provenance feature, now auto-detected.
 
 ## Limitations
 

@@ -11,6 +11,7 @@ from flowscope.critic import ClusterCritique, detect_anomalies
 from flowscope.reporter import (
     DISCLAIMER,
     SUMMARY_TOOL,
+    compute_file_checksum,
     generate_narrative,
     generate_report,
     render_report,
@@ -141,3 +142,57 @@ def test_generate_report_end_to_end_with_fake_client():
     assert "likely_artifact" in md
     assert "Structure looks normal" in md
     assert DISCLAIMER in md
+
+
+def test_compute_file_checksum_matches_known_hash(tmp_path):
+    f = tmp_path / "sample.txt"
+    f.write_bytes(b"hello flowscope")
+    import hashlib
+
+    expected = hashlib.sha256(b"hello flowscope").hexdigest()
+    assert compute_file_checksum(str(f)) == expected
+
+
+def test_render_report_includes_provenance_section():
+    summary = _annotated_summary()
+    provenance_meta = {
+        **META,
+        "file_path": "flowio-demo/pbmc_13color_facsaria.fcs",
+        "file_sha256": "abc123def456",
+        "spillover_source": "embedded in FCS file",
+        "cofactor": 150.0,
+        "subsample_n": 20000,
+        "seed": 42,
+    }
+    md = render_report(summary, [], provenance_meta, narrative=None)
+
+    assert "## Analysis Provenance" in md
+    assert "flowio-demo/pbmc_13color_facsaria.fcs" in md
+    assert "abc123def456" in md
+    assert "embedded in FCS file" in md
+    assert "150.0" in md
+    assert "20000" in md
+    assert "42" in md
+    # Version is recorded even though the caller didn't supply it explicitly.
+    from flowscope import __version__ as flowscope_version
+
+    assert flowscope_version in md
+    # No AI was used for this report -> provenance says so, not a model name.
+    assert "none — detection-only report" in md
+
+
+def test_render_report_provenance_records_ai_model_when_narrative_used():
+    summary = _annotated_summary()
+    provenance_meta = {**META, "ai_model": "claude-sonnet-4-6"}
+    md = render_report(summary, [], provenance_meta, narrative={"overview": "x"})
+    assert "claude-sonnet-4-6" in md
+
+
+def test_render_report_provenance_defaults_to_na_when_fields_missing():
+    # Callers that don't pass provenance fields (e.g. older code, or a
+    # detection-only report built without file info) still get a valid,
+    # non-crashing report -- fields just read "n/a".
+    summary = _annotated_summary()
+    md = render_report(summary, [], META)
+    assert "## Analysis Provenance" in md
+    assert "n/a" in md

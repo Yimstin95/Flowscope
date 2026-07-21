@@ -18,10 +18,12 @@ produce a fully-useful report without any LLM call.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 
 import pandas as pd
 
+from . import __version__ as FLOWSCOPE_VERSION
 from .critic import ANNOTATION_COLS, META_COLS, ClusterCritique
 from .panel_interpreter import MODEL
 
@@ -30,6 +32,18 @@ DISCLAIMER = (
     "research/education tool and this report is a reference signal, not a "
     "diagnostic determination."
 )
+
+
+def compute_file_checksum(path: str, algorithm: str = "sha256") -> str:
+    """Hash of the raw FCS file bytes, recorded in the report so a later reader
+    can confirm they're looking at results from the exact same input file, byte
+    for byte (not just a file with the same name)."""
+    digest = hashlib.new(algorithm)
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 
 # --- Stage-4 LLM narrative ---------------------------------------------------
 
@@ -167,6 +181,26 @@ def render_report(
         "",
     ]
 
+    # Analysis Provenance: deterministic, no LLM involved. Exists so a report
+    # can be reproduced bit-for-bit later, or defended in review, without
+    # anyone having to remember (or re-derive) what settings produced it.
+    lines += [
+        "## Analysis Provenance",
+        "",
+        f"- **Input file:** {meta.get('file_path', 'n/a')}",
+        f"- **File SHA-256:** `{meta.get('file_sha256', 'n/a')}`",
+        f"- **Compensation source:** {meta.get('spillover_source', 'n/a')}",
+        f"- **arcsinh cofactor:** {meta.get('cofactor', 'n/a')}",
+        f"- **Events subsampled:** {meta.get('subsample_n', 'n/a')}",
+        f"- **Random seed:** {meta.get('seed', 'n/a')}",
+        f"- **FlowScope version:** {FLOWSCOPE_VERSION}",
+        f"- **AI model (if used):** {meta.get('ai_model') or 'none — detection-only report'}",
+        "",
+        "_Re-running with the same input file and these exact settings reproduces "
+        "this result bit-for-bit (the pipeline is deterministic given a fixed seed)._",
+        "",
+    ]
+
     if narrative:
         lines += ["## Summary (AI-proposed)", "", narrative.get("overview", ""), ""]
         if narrative.get("notable_findings"):
@@ -229,4 +263,5 @@ def generate_report(
     narrative = None
     if with_narrative:
         narrative = generate_narrative(summary, critiques, client=client)
+        meta = {**meta, "ai_model": MODEL}
     return render_report(summary, critiques, meta, narrative=narrative)

@@ -5,6 +5,9 @@ venv/
 .env
 data/raw/*
 !data/raw/.gitkeep
+# flowio-demo is small (4MB) and BSD-3 licensed -- committed, unlike the much
+# larger git-ignored FR-FCM-ZZEB dataset. See data/raw/flowio-demo/NOTICE.md.
+!data/raw/flowio-demo/
 .DS_Store
 .pytest_cache/
 *.egg-info/

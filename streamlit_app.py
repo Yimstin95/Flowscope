@@ -55,7 +55,7 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
 from flowscope.critic import critique
 from flowscope.panel_interpreter import interpret_panel, panel_from_channels
 from flowscope.pipeline import run_pipeline
-from flowscope.reporter import generate_report, render_report
+from flowscope.reporter import compute_file_checksum, generate_report, render_report
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "raw")
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "flowscope_uploads")
@@ -97,10 +97,21 @@ def _save_uploaded_fcs(uploaded) -> str:
     return path
 
 
+def _sibling_spillover_csv(fcs_path: str) -> str | None:
+    """Some fixtures (e.g. the synthetic demo) have no embedded $SPILLOVER and
+    ship their ground-truth matrix as a sibling <name>.spillover.csv instead
+    (see scripts/generate_synthetic_fcs.py). Auto-detect it so picking that
+    file in the UI doesn't crash with "cannot compensate"."""
+    candidate = os.path.splitext(fcs_path)[0] + ".spillover.csv"
+    return candidate if os.path.exists(candidate) else None
+
+
 @st.cache_data(show_spinner="Running pipeline (parse → compensate → transform → cluster → UMAP)…")
 def _cached_pipeline(path: str, cofactor: float, subsample_n: int, n_metaclusters: int, seed: int):
+    spillover_path = _sibling_spillover_csv(path)
     out = run_pipeline(
         path,
+        spillover_path=spillover_path,
         cofactor=cofactor,
         subsample_n=subsample_n,
         n_metaclusters=n_metaclusters,
@@ -118,6 +129,7 @@ def _cached_pipeline(path: str, cofactor: float, subsample_n: int, n_metacluster
         "n_metaclusters": out.result.n_metaclusters,
         "n_events_total": out.sample.events.shape[0],
         "n_sub": len(out.result.event_index),
+        "spillover_source": "external CSV" if spillover_path else "embedded in FCS file",
     }
 
 
@@ -317,11 +329,20 @@ if n_flagged:
 else:
     st.info("No clusters flagged as anomalous at the current thresholds.")
 
+_selected_path, _cofactor, _subsample_n, _n_metaclusters, _seed = st.session_state["params"]
 meta = {
-    "sample_label": os.path.relpath(st.session_state["params"][0], DATA_DIR),
+    "sample_label": os.path.relpath(_selected_path, DATA_DIR),
     "total_events": data["n_events_total"],
     "analyzed_events": data["n_sub"],
     "n_clusters": n_meta,
+    # Analysis Provenance fields (see reporter.render_report) — recorded so the
+    # exact settings behind a given report can be reproduced later.
+    "file_path": os.path.relpath(_selected_path, DATA_DIR),
+    "file_sha256": compute_file_checksum(_selected_path),
+    "spillover_source": data["spillover_source"],
+    "cofactor": _cofactor,
+    "subsample_n": _subsample_n,
+    "seed": _seed,
 }
 
 # --- Stage 3 + 4: AI interpretation and report (opt-in, needs API key) ------
