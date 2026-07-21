@@ -103,8 +103,9 @@ def test_arcsinh_transform_compresses_dynamic_range():
     compensated = apply_compensation(sample)
     transformed = arcsinh_transform(compensated, channels=FLUOR_CHANNELS, cofactor=150.0)
 
-    raw_range = compensated.events[FLUOR_CHANNELS].to_numpy().ptp()
-    transformed_range = transformed.events[FLUOR_CHANNELS].to_numpy().ptp()
+    # np.ptp(...) not ndarray.ptp() — the method form was removed in NumPy 2.0.
+    raw_range = np.ptp(compensated.events[FLUOR_CHANNELS].to_numpy())
+    transformed_range = np.ptp(transformed.events[FLUOR_CHANNELS].to_numpy())
     assert transformed_range < raw_range
 
     # Scatter/time channels must be untouched by the fluorescence-only transform
@@ -149,7 +150,7 @@ def test_real_zzeb_sample_full_pipeline_runs():
     transformed = arcsinh_transform(compensated, channels=fluor_channels, cofactor=150.0)
 
     assert transformed.events.shape == sample.events.shape
-    raw_range = compensated.events[fluor_channels].to_numpy().ptp()
-    transformed_range = transformed.events[fluor_channels].to_numpy().ptp()
+    raw_range = np.ptp(compensated.events[fluor_channels].to_numpy())
+    transformed_range = np.ptp(transformed.events[fluor_channels].to_numpy())
     assert transformed_range < raw_range
     assert np.isfinite(transformed.events[fluor_channels].to_numpy()).all()
