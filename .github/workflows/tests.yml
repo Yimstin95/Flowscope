@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        # requirements.txt carries a `-e .` line, so this one step also installs
+        # the flowscope package itself (see requirements.txt for why that's
+        # needed beyond local dev).
+
+      - name: Run tests
+        run: pytest tests/ -v
+        # No ANTHROPIC_API_KEY is set here on purpose: every Claude-API code path
+        # is unit-tested against a fake in-process client (see
+        # tests/test_panel_interpreter.py, test_critic.py, test_reporter.py), so
+        # the full suite runs with no key and no network call. Real-FR-FCM-ZZEB
+        # tests auto-skip since that ~395MB data is git-ignored and never present
+        # in CI (see tests/test_executor.py).

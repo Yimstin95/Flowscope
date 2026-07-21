@@ -1,5 +1,7 @@
 # FlowScope
 
+[![Tests](https://github.com/Yimstin95/Flowscope/actions/workflows/tests.yml/badge.svg)](https://github.com/Yimstin95/Flowscope/actions/workflows/tests.yml)
+
 FlowScope automates gating of flow cytometry data, flags cell populations that are
 statistically anomalous relative to the rest of a sample, and uses an AI agent to
 give a first-pass read on whether an anomaly looks like a technical artifact or a
