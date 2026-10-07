@@ -107,7 +107,7 @@ def cluster_marker_profile(
     summary: pd.DataFrame, cluster_id, top_n: int = 8
 ) -> list[MarkerDeviation]:
     """For one cluster, rank its markers by how far the cluster's median sits
-    from the cross-cluster median, in cross-cluster std units. This is the
+    from the cross-cluster mean, in cross-cluster std units. This is the
     evidence the LLM reasons over — 'CD3 high, CD19 low, viability high', etc.
     """
     markers = _marker_columns(summary)
@@ -191,6 +191,45 @@ diagnostic conclusion; this is a reference signal for the analyst to verify. Rec
 read by calling record_cluster_interpretation."""
 
 
+# Variant 2 changes ONLY the decision policy (when to abstain). The artifact/biology descriptions
+# are word-for-word the same, so it adds no new domain knowledge. Added after the free local models
+# answered `needs_confirmation` on every cluster under the original prompt (see docs/eval-design.md).
+INTERPRET_SYSTEM_PROMPT_V2 = """You are helping a trained flow cytometry analyst triage a \
+cluster that a statistical detector flagged as anomalous.
+
+Reason ONLY from the marker-expression evidence provided. Weigh common technical \
+artifacts against genuine biology:
+- Compensation spillover: a cluster that is 'high' on markers whose fluorochromes sit on \
+adjacent detectors, without a coherent lineage pattern.
+- Dead cells / debris: high viability-dye signal, low or smeared scatter, diffuse low \
+expression across lineage markers.
+- Doublets: co-expression of markers that should be mutually exclusive across two cell types.
+- Genuine rare population: a coherent, interpretable marker combination (e.g. a bona fide \
+CD3+CD4+CD8+ or CD56bright subset).
+
+Decision policy: commit to the more likely reading. Answer 'likely_artifact' or \
+'likely_biological' and express any doubt through the confidence field (low / medium / high). \
+Use 'needs_confirmation' ONLY when the two readings are about equally likely after weighing the \
+evidence. Never assert a clinical or diagnostic conclusion; this is a reference signal for the \
+analyst to verify. Record your read by calling record_cluster_interpretation."""
+
+# Variant 3 = v2 + textbook phenotypes of the five major PBMC lineages. v1/v2 describe three artifact
+# types concretely but "genuine biology" only abstractly, and the small local models answered
+# `likely_artifact` for every cluster (also with the "flagged as anomalous" premise removed).
+# Deliberately NOT included: the two rare populations that exist only in the simulated test sets.
+INTERPRET_SYSTEM_PROMPT_V3 = INTERPRET_SYSTEM_PROMPT_V2.replace(
+    "Decision policy:",
+    "What genuine populations look like in PBMC: a single lineage-consistent marker combination, "
+    "e.g. T helper cells CD3+CD4+; cytotoxic T cells CD3+CD8+; B cells CD19+HLA-DR+; NK cells "
+    "CD56+/CD16+ and CD3-; monocytes CD14+HLA-DR+. A cluster that matches one of these with a low "
+    "viability-dye signal is most likely biological.\n\nDecision policy:",
+    1,
+)
+assert INTERPRET_SYSTEM_PROMPT_V3 != INTERPRET_SYSTEM_PROMPT_V2
+
+PROMPTS = {"v1": INTERPRET_SYSTEM_PROMPT, "v2": INTERPRET_SYSTEM_PROMPT_V2, "v3": INTERPRET_SYSTEM_PROMPT_V3}
+
+
 def build_interpretation_message(
     cluster_id, frequency_pct: float, n_events: int, profile: list[MarkerDeviation]
 ) -> str:
@@ -198,7 +237,7 @@ def build_interpretation_message(
         f"Anomalous cluster {cluster_id}: {frequency_pct:.2f}% of analyzed events "
         f"({n_events} events).",
         "",
-        "Marker profile (deviation from the cross-cluster median, in std units; "
+        "Marker profile (deviation from the cross-cluster mean, in std units; "
         "median is on the arcsinh-transformed scale):",
     ]
     for d in profile:
@@ -222,6 +261,7 @@ def interpret_anomaly(
     model: str = MODEL,
     max_tokens: int = 1024,
     top_n: int = 8,
+    system_prompt: str = INTERPRET_SYSTEM_PROMPT,
 ) -> dict:
     """Stage-3 Claude call for a single flagged cluster. Returns the
     {verdict, confidence, key_markers, reasoning} dict.
@@ -243,7 +283,7 @@ def interpret_anomaly(
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
-        system=INTERPRET_SYSTEM_PROMPT,
+        system=system_prompt,
         tools=[INTERPRET_TOOL],
         tool_choice={"type": "tool", "name": "record_cluster_interpretation"},
         messages=[{"role": "user", "content": message}],
@@ -265,6 +305,7 @@ class ClusterCritique:
     frequency_pct: float
     flagged_by: str
     interpretation: dict | None = None  # None if not interpreted (no client)
+    interpretation_error: str | None = None  # set when the AI call failed for this cluster
 
 
 @dataclass
@@ -281,6 +322,9 @@ def critique(
     z_thresh: float = 2.5,
     contamination: float | str = "auto",
     seed: int = 42,
+    model: str = MODEL,
+    system_prompt: str | None = None,
+    on_error: str = "raise",
 ) -> CritiqueResult:
     """Detect anomalous clusters, then (if `interpret`) ask Claude to interpret
     each flagged one. Set `interpret=False` (or leave `client=None` in an
@@ -293,15 +337,26 @@ def critique(
 
     critiques: list[ClusterCritique] = []
     for _, row in flagged.iterrows():
-        interp = None
+        interp, err = None, None
         if interpret:
-            interp = interpret_anomaly(annotated, row["cluster"], client=client)
+            try:
+                interp = interpret_anomaly(
+                    annotated, row["cluster"], client=client, model=model,
+                    system_prompt=system_prompt or INTERPRET_SYSTEM_PROMPT,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # on_error="skip": one failing cluster (e.g. a provider outage) must not throw away
+                # the interpretations already obtained for the others.
+                if on_error != "skip":
+                    raise
+                err = f"{type(exc).__name__}: {exc}"
         critiques.append(
             ClusterCritique(
                 cluster=row["cluster"],
                 frequency_pct=float(row["frequency_pct"]),
                 flagged_by=row["flagged_by"],
                 interpretation=interp,
+                interpretation_error=err,
             )
         )
     return CritiqueResult(annotated=annotated, critiques=critiques)

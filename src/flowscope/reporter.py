@@ -237,6 +237,11 @@ def render_report(
                 km = interp.get("key_markers") or []
                 lines.append(f"- **Key markers:** {', '.join(km) or '(none)'}")
                 lines.append(f"- **Reasoning:** {interp.get('reasoning', '')}")
+            elif getattr(c, "interpretation_error", None):
+                lines.append(
+                    "- **Interpretation:** not available — the AI service failed for this cluster "
+                    f"({c.interpretation_error[:120]}). Review this cluster manually."
+                )
             else:
                 lines.append("- **Interpretation:** not generated (detection only)")
             lines.append("")

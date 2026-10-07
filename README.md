@@ -31,6 +31,54 @@ as one. Nothing in this codebase should ever produce a definitive diagnostic cla
 **reference signal that requires expert review** — the AI agent proposes, a trained
 analyst decides.
 
+## How far can the AI step be trusted? (evaluation)
+
+The Critic's job is one call per cluster: *technical artifact* or *real population*. Before trusting
+it, it was **measured**. No public cytometry database labels clusters as artifact vs. real (benchmarks
+such as FlowCAP / HDCytoData carry manually gated cell-type labels only), so the evaluation uses a
+**known-answer ("spike-in") test**: simulated PBMC-like files with artifacts planted on purpose, so the
+truth of every cluster is known by construction.
+
+**Held-out test result** — 63 clusters (37 real, 26 artifacts: dead cells, debris, T:B and T:monocyte
+doublets, antibody aggregates), the Critic's **original prompt**, temperature 0, scored **once**:
+
+| Model (where it runs) | Agreement (95% CI) | Artifact called real | Real called artifact | Abstained | s / cluster |
+|---|---|---|---|---|---|
+| gemma-4-31b-it (Gemini API, free tier) | **97% (92–100%)** | 4% | 3% | 0% | 42 |
+| gemini-3.5-flash-lite (Gemini API, free tier) | 84% (75–92%) | 4% | 16% | 5% | 7 |
+| gemma3:4b (local, Ollama) | 0% | 0% | 0% | 100% | 16 |
+| *Anomaly detector alone, no AI* | *catches 38% of artifacts; flags 51% of real clusters* | | | | |
+
+What it shows:
+
+- **Model size decided it.** On the development set, three 4–8B local models (gemma3:4b, llama3.1:8b,
+  qwen2.5:7b) never told real from artifact under any of three prompt variants — first they abstained on
+  everything, then called everything an artifact. The same model family at 31B scored 97% on the test set.
+- **The remaining errors are the bench's hard cases:** T:monocyte doublets (CD3+CD14+) and rare real
+  populations. Rule of use: **confirm doublet-like and rare clusters manually.**
+- The free cloud path is cheap but **not private**: free-tier inputs may be used by the provider, so it
+  must never receive confidential data. A 31B model does not fit on a 16 GB laptop.
+
+Method in one paragraph: model and prompt choices were made on a **development** set (seeds 100–104);
+the **test** set (seeds 200–204) was generated beforehand and scored once. Prompt variants v2/v3 change
+only the abstention policy / add textbook PBMC phenotypes (verified by diff; no simulator-specific hints;
+the two rare populations were deliberately left out). Server errors (HTTP 5xx, timeouts) are retried and
+never scored as model mistakes. Full design, protocol and every intermediate result:
+[`docs/eval-design.md`](docs/eval-design.md).
+
+**Limits — read with the numbers:** simulated clusters are cleaner than real ones (all 100% pure), so
+these are upper bounds, not real-world accuracy; simulator and prompt share an author; n = 63. An
+expert-labelled evaluation on the three real samples is prepared (`data/eval/`) but not yet labelled.
+
+Reproduce:
+
+```bash
+python scripts/make_spikein_eval.py test                    # rebuild the known-answer test set
+python scripts/run_eval.py --provider gemini --model gemma-4-31b-it --eval-dir data/eval_synth_test
+python scripts/run_eval.py --model gemma3:4b --eval-dir data/eval_synth_test       # local, needs Ollama
+python scripts/score_eval.py --eval-dir data/eval_synth_test --gold data/eval_synth_test/gold_truth.csv
+```
+
 ## Why this project exists
 
 I worked as a flow cytometry / cell-based-assay analyst at a cell-therapy CRO
@@ -239,7 +287,7 @@ cd Flowscope
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .                 # editable install so `import flowscope` resolves
-cp .env.example .env             # add your own ANTHROPIC_API_KEY (git-ignored; never commit)
+cp .env.example .env             # optional keys (git-ignored; never commit): GEMINI_API_KEY (free tier) and/or ANTHROPIC_API_KEY
 python3 scripts/generate_synthetic_fcs.py   # synthetic data/raw/*.fcs fixture
 pytest tests/ -v                 # real-data tests auto-skip if data/raw/FR-FCM-ZZEB/ is absent
 
@@ -260,12 +308,11 @@ URL, free, with zero local setup for viewers:
 
 1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
 2. **Create app** → pick this repo, branch `main`, main file path `streamlit_app.py`.
-3. Before deploying, open **Advanced settings → Secrets** and paste:
-   ```toml
-   ANTHROPIC_API_KEY = "sk-ant-..."
-   ```
-   (Only needed if you want the AI report button to work for viewers — the
-   deterministic sections work with no secret at all.)
+3. **Leave Secrets empty for a public app.** A key stored there lets *every visitor*
+   spend your quota or credits. The deterministic pipeline and the pre-computed
+   evaluation panel work with no secret at all; the AI report is meant to be run
+   locally with your own key in `.env`. (Only for a private deployment would you add
+   `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` under **Advanced settings → Secrets**.)
 4. Deploy. The public deployment ships with the real `flowio-demo` sample
    (committed to the repo) plus an auto-generated synthetic fixture on first
    boot — real data works out of the box, no extra hosting needed. The much
@@ -342,6 +389,14 @@ python scripts/validate_critic.py              # stages 3 end-to-end on a real s
       demo file in the UI raised `ValueError` because its spillover matrix
       (external CSV, unlike the other datasets) was never passed through —
       caught while wiring up the provenance feature, now auto-detected.
+- [x] Critic evaluation + free model back-ends — known-answer spike-in benchmark
+      with a dev/test split (`scripts/make_spikein_eval.py`, `run_eval.py`,
+      `score_eval.py`, `src/flowscope/evaluation.py`), provider-agnostic LLM layer
+      (`src/flowscope/llm_providers.py`: local Ollama and Gemini API free tier, with
+      schema validation and server-error retry), an "evaluation results" panel in the
+      app, and a Gemini option for the AI report. See `docs/eval-design.md`.
+- [ ] Expert-labelled evaluation on the three real samples (`data/eval/`, blind
+      labeling page in `data/eval/label_ui/`)
 
 ## Limitations
 
@@ -364,11 +419,17 @@ caveats a reviewer should know:
 - **Anomaly thresholds are heuristics.** The z-score cutoff and IsolationForest
   contamination are defaults, not validated operating points; they flag *candidates*
   for review, and both false positives and misses are expected.
-- **LLM outputs are non-deterministic and unverified.** The Panel Interpreter and
-  Critic can be wrong or inconsistent between runs. Nothing downstream trusts them
-  automatically — they are reference signals for an analyst, and the report says so.
+- **LLM outputs are only partly verified.** The Critic was scored on a simulated
+  known-answer test (see "How far can the AI step be trusted?"), not yet on
+  expert-labelled real samples; the Panel Interpreter is not evaluated. Both can be
+  wrong. Nothing downstream trusts them automatically — they are reference signals
+  for an analyst, and the report says so.
 - **Compensation uses the embedded spillover matrix as-is.** FlowScope does not
   recompute spillover from the single-stain controls (`743705`–`743723`); a wrong
   or stale embedded matrix would propagate.
 - **Single-sample only.** There is no cross-sample batch correction or
   cohort-level comparison; each file is analyzed on its own.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Bundled third-party data keep their own licenses (see `data/raw/flowio-demo/NOTICE.md`).

@@ -46,13 +46,16 @@ except ImportError:
 # Anthropic SDK (which reads ANTHROPIC_API_KEY from os.environ) finds it either
 # way, without changing any downstream code. st.secrets raises if no secrets
 # file exists at all (e.g. a bare local clone with just .env), so guard it.
-if not os.environ.get("ANTHROPIC_API_KEY"):
-    try:
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
-    except (FileNotFoundError, KeyError, st.errors.StreamlitAPIException):
-        pass
+for _key in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+    if not os.environ.get(_key):
+        try:
+            os.environ[_key] = st.secrets[_key]
+        except (FileNotFoundError, KeyError, st.errors.StreamlitAPIException):
+            pass
 
 from flowscope.critic import critique
+from flowscope.eval_results import load_eval_results
+from flowscope.llm_providers import GeminiClient
 from flowscope.panel_interpreter import interpret_panel, panel_from_channels
 from flowscope.pipeline import run_pipeline
 from flowscope.reporter import compute_file_checksum, generate_report, render_report
@@ -74,6 +77,44 @@ st.warning(
     "pipeline and are always subject to expert review.",
     icon="⚠️",
 )
+
+# Evaluation results are pre-computed (scripts/score_eval.py), so this panel needs no key and makes
+# no model calls. It sits above the analysis so visitors see it without running anything.
+_eval = load_eval_results()
+with st.expander("📊 How far can the AI step be trusted? — evaluation results", expanded=False):
+    if _eval is None:
+        st.info("No evaluation results found (`data/eval_synth_test/results.json`).")
+    else:
+        st.markdown(
+            "The AI step (*technical artifact* vs *real population* for a cluster) was scored on a "
+            "held-out **known-answer test**: 63 simulated PBMC-like clusters (37 real populations, "
+            "26 planted artifacts: dead cells, debris, T:B and T:monocyte doublets, antibody aggregates). "
+            "Original prompt, temperature 0, scored **once**; models and prompt were chosen on a separate "
+            "development set."
+        )
+        _disp = _eval["models"].copy()
+        for _c in ("agreement", "artifact called real", "real called artifact", "abstained"):
+            _disp[_c] = (_disp[_c] * 100).round(0).astype(int).astype(str) + "%"
+        _disp["sec / cluster"] = _disp["sec / cluster"].round(0).astype(int)
+        st.dataframe(_disp, hide_index=True, use_container_width=True)
+        _d = _eval["detector"]
+        if _d:
+            st.caption(
+                f"For comparison, the statistical anomaly detector alone (no AI) catches "
+                f"{_d.get('artifact_recall', float('nan')):.0%} of artifacts and also flags "
+                f"{_d.get('false_flag_on_real', float('nan')):.0%} of real clusters."
+            )
+        st.markdown("**Correct calls by true cluster type**")
+        st.dataframe(_eval["by_type"], use_container_width=True)
+        st.markdown(
+            "**Reading it.** Model size decided the outcome: the same model family abstained on every "
+            "cluster at 4B (local) and scored 97% at 31B. The remaining errors sit where they also sit at "
+            "the bench: **T:monocyte doublets** and **rare real populations** — confirm those manually.\n\n"
+            "**Limits.** Simulated clusters are cleaner than real samples (every cluster was 100% pure), so "
+            "these numbers are an upper bound, not real-world accuracy. Test and prompt were written by the same "
+            "person (no simulator-specific hints were allowed in the prompt). n = 63. Free-tier cloud models may "
+            "use submitted inputs — never send confidential data. Details: `docs/eval-design.md`."
+        )
 
 
 def _discover_fcs_files() -> list[str]:
@@ -348,28 +389,62 @@ meta = {
 # --- Stage 3 + 4: AI interpretation and report (opt-in, needs API key) ------
 st.subheader("AI interpretation & report")
 st.caption(
-    "Interprets the flagged clusters with Claude (artifact vs. biological, with "
-    "marker evidence) and drafts a LIMS-style report. Reference signals for "
-    "analyst review — never diagnostic."
+    "Interprets the flagged clusters (artifact vs. biological, with marker evidence) "
+    "and drafts a LIMS-style report. Reference signals for analyst review — never "
+    "diagnostic. See the evaluation panel at the top for how far each model can be trusted."
 )
-has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
-if not has_key:
+# Offer only the back-ends that have a key configured (git-ignored .env locally, or
+# Streamlit secrets). The public deployment ships with no keys, so this stays disabled there.
+ai_options: dict[str, tuple[str, str | None]] = {}
+if os.environ.get("GEMINI_API_KEY"):
+    ai_options["Gemini API free tier — gemma-4-31b-it (best in our evaluation, ~1 min/cluster)"] = ("gemini", "gemma-4-31b-it")
+    ai_options["Gemini API free tier — gemini-3.5-flash-lite (faster, ~10 s/cluster; 84% in our evaluation)"] = ("gemini", "gemini-3.5-flash-lite")
+if os.environ.get("ANTHROPIC_API_KEY"):
+    ai_options["Claude — original design (paid; not evaluated here)"] = ("anthropic", None)
+if not ai_options:
     st.info(
-        "Set `ANTHROPIC_API_KEY` (e.g. in the git-ignored `.env` file) to enable "
-        "the AI interpretation and report. You can still download the "
+        "No AI key configured. Set `GEMINI_API_KEY` (free tier) or `ANTHROPIC_API_KEY` in the "
+        "git-ignored `.env` file to enable the AI interpretation. You can still download the "
         "deterministic report below."
     )
+    ai_choice = None
+else:
+    ai_choice = st.radio("AI model", list(ai_options), index=0)
+    if ai_options[ai_choice][0] == "gemini":
+        st.caption(
+            "Only per-cluster summary numbers (marker medians), not raw events, are sent to Google. "
+            "Free-tier inputs may be used by Google — do not use with confidential data. "
+            "Clusters the service fails on are marked in the report for manual review."
+        )
 
 col_ai, col_det = st.columns(2)
-gen_ai = col_ai.button("Generate AI report", type="primary", disabled=not has_key)
+gen_ai = col_ai.button("Generate AI report", type="primary", disabled=ai_choice is None)
 gen_det = col_det.button("Build report without AI (detection only)")
 
 if gen_ai:
+    kind, model_id = ai_options[ai_choice]
     try:
-        with st.spinner("Interpreting flagged clusters and drafting report (Claude)…"):
-            result = critique(detected, interpret=True)
-            report_md = generate_report(
-                result.annotated, result.critiques, meta, with_narrative=True
+        if kind == "gemini":
+            with st.spinner(f"Interpreting {n_flagged} flagged clusters with {model_id} (Gemini free tier)…"):
+                result = critique(detected, interpret=True, client=GeminiClient(), model=model_id,
+                                  on_error="skip")
+                # The narrative step is Claude-only; the per-cluster interpretations are the evaluated part.
+                report_md = render_report(
+                    result.annotated, result.critiques,
+                    {**meta, "ai_model": f"{model_id} via Gemini API (free tier)"}, narrative=None,
+                )
+        else:
+            with st.spinner("Interpreting flagged clusters and drafting report (Claude)…"):
+                result = critique(detected, interpret=True)
+                report_md = generate_report(
+                    result.annotated, result.critiques, meta, with_narrative=True
+                )
+        _failed = [c.cluster for c in result.critiques if getattr(c, "interpretation_error", None)]
+        if _failed:
+            st.warning(
+                f"The AI service failed for cluster(s) {', '.join(map(str, _failed))} "
+                "(provider error, not a model verdict). They are marked in the report for manual "
+                "review; you can also retry later."
             )
         st.success("Report generated.")
         st.markdown(report_md)

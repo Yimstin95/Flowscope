@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowScope cluster labeling</title>
+<style>
+:root{--bg:#fafaf8;--panel:#fff;--ink:#1c1c1a;--mute:#6b6b66;--line:#e2e0d8;--accent:#1d5fd1;--ok:#1f8a4c;--art:#b4321e;--unsure:#8a6d1f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#161615;--panel:#1f1f1d;--ink:#ecebe6;--mute:#9a9992;--line:#34332f;--accent:#6ea0ff;--ok:#4cc27e;--art:#ef7a66;--unsure:#e0b860}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+h1{font-size:18px;margin:0}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:120px}
+.bar>i{display:block;height:100%;background:var(--ok);width:0}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;min-width:0}
+.label{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:20px;font-weight:600;margin:2px 0 6px}
+.mrow{display:grid;grid-template-columns:78px 1fr 92px;gap:8px;align-items:center;font-size:13px;padding:1px 0}
+.mrow .track{height:10px;background:var(--line);border-radius:3px;position:relative;overflow:hidden}
+.mrow .track i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.75}
+.mrow .num{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mute);text-align:right}
+.hi{color:var(--art);font-weight:600}.lo{color:var(--accent);font-weight:600}
+canvas{max-width:100%;height:auto;display:block}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+button{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.sel{outline:3px solid var(--accent)}
+.b-art{border-color:var(--art);color:var(--art)}.b-real{border-color:var(--ok);color:var(--ok)}.b-uns{border-color:var(--unsure);color:var(--unsure)}
+input[type=text]{width:100%;padding:9px 11px;font-size:15px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);margin-top:8px}
+.small{font-size:12px;color:var(--mute)}
+.chosen{font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>FlowScope cluster labeling <span class="small" id="pos"></span></h1>
+  <div class="bar"><i id="barfill"></i></div>
+  <button id="export" class="primary">Export CSV</button>
+</header>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <div class="label" id="sample"></div>
+      <div class="big" id="title"></div>
+      <div class="small" id="stats"></div>
+    </div>
+    <div class="card">
+      <div class="label">Marker medians (arcsinh scale) — all markers, most distinctive first</div>
+      <div id="markers"></div>
+      <div class="small" style="margin-top:6px">Bar = value relative to the highest cluster in this sample. Red/blue = unusually high/low versus the other clusters (z-score).</div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="label">Context: all clusters in this sample (rows) × markers (columns); current cluster outlined</div>
+      <canvas id="heat"></canvas>
+    </div>
+    <div class="card">
+      <div class="label">Your call</div>
+      <div class="btns">
+        <button id="bArt" class="b-art">1 · ARTIFACT</button>
+        <button id="bReal" class="b-real">2 · REAL population</button>
+        <button id="bUns" class="b-uns">3 · UNSURE</button>
+      </div>
+      <input type="text" id="note" placeholder="Optional note: what do you think it is? (e.g. dead cells, CD4 naive T, doublet, spillover...)">
+      <div class="small" style="margin-top:8px">Current answer: <span class="chosen" id="cur">—</span></div>
+      <div class="small" style="margin-top:8px"><b>ARTIFACT</b> = dead cells/debris, doublets, compensation spill-over, staining/acquisition problem. <b>REAL</b> = coherent, interpretable cell population. <b>UNSURE</b> = you could not decide from these data alone.</div>
+    </div>
+  </div>
+</div>
+
+<div class="btns">
+  <button id="prev">&larr; Back</button>
+  <button id="next">Next &rarr;</button>
+  <button id="jump">Next unlabeled</button>
+  <span class="small" id="saved"></span><span id="warn" style="color:var(--art);font-weight:600;margin-left:8px"></span>
+</div>
+<p class="small">Autosaves in this browser. Label blind: do not look at any model output or detector flag first. Keys: 1/2/3 = label, &larr;/&rarr; = navigate.</p>
+</div>
+
+<script>
+const DATA = /*DATA*/{};
+const ITEMS = DATA.items;
+// One storage origin only: browsers keep localStorage separately for localhost and 127.0.0.1,
+// which once split the labels across two places. Always continue on 127.0.0.1.
+if (location.hostname === "localhost") location.replace(location.href.replace("localhost", "127.0.0.1"));
+const KEY = "flowscope_gold_v2";
+let shownAt = Date.now();
+let labels = {}; try { labels = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e) {}
+let i = 0;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(labels)); $("saved").textContent = "saved " + new Date().toLocaleTimeString(); } catch(e) { $("saved").textContent = "autosave unavailable - export often"; } }
+const done = () => Object.keys(labels).length;
+
+function stats(sample){
+  const S = DATA.samples[sample], n = S.clusters.length, m = S.markers.length;
+  const mean = [], std = [], max = [], min = [];
+  for (let j = 0; j < m; j++) {
+    const v = S.clusters.map(c => c.v[j]);
+    const mu = v.reduce((a, b) => a + b, 0) / n;
+    const sd = Math.sqrt(v.reduce((a, b) => a + (b - mu) ** 2, 0) / n) || 1;
+    mean.push(mu); std.push(sd); max.push(Math.max(...v)); min.push(Math.min(...v));
+  }
+  return {mean, std, max, min};
+}
+const cache = {};
+function getStats(s){ return cache[s] || (cache[s] = stats(s)); }
+
+function drawHeat(it){
+  const S = DATA.samples[it.sample], st = getStats(it.sample);
+  const cw = 34, rh = 15, top = 78, left = 34;
+  const cv = $("heat"), dpr = window.devicePixelRatio || 1;
+  const W = left + S.markers.length * cw + 4, H = top + S.clusters.length * rh + 4;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px";
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const ink = dark ? "#ecebe6" : "#1c1c1a";
+  g.clearRect(0, 0, W, H); g.font = "10px sans-serif"; g.fillStyle = ink;
+  S.markers.forEach((m, j) => { g.save(); g.translate(left + j * cw + cw / 2, top - 4); g.rotate(-Math.PI / 3); g.textAlign = "left"; g.fillText(m, 0, 0); g.restore(); });
+  S.clusters.forEach((c, r) => {
+    g.fillStyle = ink; g.textAlign = "right"; g.fillText("c" + c.cluster, left - 4, top + r * rh + 11);
+    S.markers.forEach((m, j) => {
+      const t = (c.v[j] - st.min[j]) / ((st.max[j] - st.min[j]) || 1);
+      const a = dark ? [30, 32, 44] : [250, 250, 245], b = [29, 95, 209];
+      g.fillStyle = `rgb(${a.map((x, k) => Math.round(x + (b[k] - x) * t)).join(",")})`;
+      g.fillRect(left + j * cw, top + r * rh, cw - 1, rh - 1);
+    });
+    if (c.id === it.item_id) { g.strokeStyle = "#e0a000"; g.lineWidth = 2; g.strokeRect(left - 1, top + r * rh - 1, S.markers.length * cw + 1, rh + 1); }
+  });
+}
+
+function show(){
+  shownAt = Date.now();
+  const it = ITEMS[i], S = DATA.samples[it.sample], st = getStats(it.sample);
+  const c = S.clusters.find(x => x.id === it.item_id);
+  $("pos").textContent = `(${i + 1}/${ITEMS.length} · labeled ${done()})`;
+  $("barfill").style.width = (100 * done() / ITEMS.length) + "%";
+  $("sample").textContent = S.title;
+  $("title").textContent = "Cluster " + c.cluster;
+  $("stats").textContent = `${c.freq.toFixed(2)}% of analysed events · ${c.n.toLocaleString()} events (sub-sampled run)`;
+  const rows = S.markers.map((m, j) => ({m, v: c.v[j], z: (c.v[j] - st.mean[j]) / st.std[j], max: st.max[j]}));
+  rows.sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+  $("markers").innerHTML = rows.map(r => `<div class="mrow"><span>${esc(r.m)}</span>
+    <span class="track"><i style="width:${Math.max(0, Math.min(100, 100 * r.v / (r.max || 1)))}%"></i></span>
+    <span class="num ${r.z >= 1 ? "hi" : r.z <= -1 ? "lo" : ""}">${r.v.toFixed(2)} (${r.z >= 0 ? "+" : ""}${r.z.toFixed(1)})</span></div>`).join("");
+  const l = labels[it.item_id];
+  $("cur").textContent = l ? l.label : "—";
+  $("note").value = l && l.note ? l.note : "";
+  ["bArt", "bReal", "bUns"].forEach(id => $(id).classList.remove("sel"));
+  if (l) $({ARTIFACT: "bArt", REAL: "bReal", UNSURE: "bUns"}[l.label]).classList.add("sel");
+  drawHeat(it);
+}
+function setLabel(lab){
+  // Dwell time is recorded with every label so the gold set can be audited later.
+  const dwell = Math.round((Date.now() - shownAt) / 100) / 10;
+  $("warn").textContent = dwell < 4 ? "Too fast (" + dwell + " s) - take a proper look at the markers and the heatmap before deciding." : "";
+  labels[ITEMS[i].item_id] = {label: lab, note: $("note").value.trim(), at: Date.now(), dwell_s: dwell};
+  save(); if (i < ITEMS.length - 1) i++; show();
+}
+$("bArt").onclick = () => setLabel("ARTIFACT"); $("bReal").onclick = () => setLabel("REAL"); $("bUns").onclick = () => setLabel("UNSURE");
+$("note").addEventListener("change", () => { const l = labels[ITEMS[i].item_id]; if (l) { l.note = $("note").value.trim(); save(); } });
+$("prev").onclick = () => { if (i > 0) { i--; show(); } };
+$("next").onclick = () => { if (i < ITEMS.length - 1) { i++; show(); } };
+$("jump").onclick = () => { const k = ITEMS.findIndex((it, idx) => idx > i && !labels[it.item_id]); const f = k >= 0 ? k : ITEMS.findIndex(it => !labels[it.item_id]); if (f >= 0) { i = f; show(); } };
+$("export").onclick = () => {
+  const q = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const rows = ["item_id,gold_label,note,dwell_s"];
+  ITEMS.forEach(it => { const l = labels[it.item_id]; if (l) rows.push([it.item_id, l.label, q(l.note || ""), l.dwell_s ?? ""].join(",")); });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([rows.join("\n")], {type: "text/csv"}));
+  a.download = "gold_labels.csv"; a.click();
+};
+document.addEventListener("keydown", e => {
+  if (document.activeElement === $("note")) return;
+  if (e.key === "1") $("bArt").click(); else if (e.key === "2") $("bReal").click(); else if (e.key === "3") $("bUns").click();
+  else if (e.key === "ArrowRight") $("next").click(); else if (e.key === "ArrowLeft") $("prev").click();
+});
+const firstOpen = ITEMS.findIndex(it => !labels[it.item_id]); i = firstOpen >= 0 ? firstOpen : 0;
+show();
+</script>
+</body>
+</html>

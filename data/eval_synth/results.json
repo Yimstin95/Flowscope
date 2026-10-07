@@ -1,0 +1,896 @@
+{
+ "gold_file": "data/eval_synth/gold_truth.csv",
+ "models": {
+  "gemini__gemini-3.5-flash-lite": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.8,
+   "agreement_confident": 0.8135593220338984,
+   "abstention_rate": 0.016666666666666666,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.2,
+   "lost_population": 0.17142857142857143,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 6.96,
+   "agreement_ci": [
+    0.7,
+    0.9
+   ],
+   "dangerous_miss_ci": [
+    0.047619047619047616,
+    0.375
+   ],
+   "lost_population_ci": [
+    0.058823529411764705,
+    0.3103448275862069
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 20,
+     "REAL": 6,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 5,
+     "REAL": 28,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 1,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "gemini__gemma-4-31b-it": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 1.0,
+   "agreement_confident": 1.0,
+   "abstention_rate": 0.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 0.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 45.11,
+   "agreement_ci": [
+    1.0,
+    1.0
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    0.0,
+    0.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 25,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "gemma3_4b": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.0,
+   "agreement_confident": NaN,
+   "abstention_rate": 1.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 0.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 15.11,
+   "agreement_ci": [
+    0.0,
+    0.0
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    0.0,
+    0.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "gemma3_4b__v2": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.4166666666666667,
+   "agreement_confident": 0.4166666666666667,
+   "abstention_rate": 0.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 1.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 17.9,
+   "agreement_ci": [
+    0.3,
+    0.55
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    1.0,
+    1.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "gemma3_4b__v3": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.4166666666666667,
+   "agreement_confident": 0.4166666666666667,
+   "abstention_rate": 0.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 1.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 16.615000000000002,
+   "agreement_ci": [
+    0.3,
+    0.55
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    1.0,
+    1.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "llama3.1_8b": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.0,
+   "agreement_confident": NaN,
+   "abstention_rate": 1.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 0.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 29.875,
+   "agreement_ci": [
+    0.0,
+    0.0
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    0.0,
+    0.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "llama3.1_8b__v2": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.4166666666666667,
+   "agreement_confident": 0.4166666666666667,
+   "abstention_rate": 0.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 1.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 26.465,
+   "agreement_ci": [
+    0.3,
+    0.55
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    1.0,
+    1.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "qwen2.5_7b": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.0,
+   "agreement_confident": NaN,
+   "abstention_rate": 1.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.0,
+   "lost_population": 0.0,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 35.739999999999995,
+   "agreement_ci": [
+    0.0,
+    0.0
+   ],
+   "dangerous_miss_ci": [
+    0.0,
+    0.0
+   ],
+   "lost_population_ci": [
+    0.0,
+    0.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 25,
+     "REAL": 35,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  },
+  "qwen2.5_7b__v2": {
+   "n_scored": 60,
+   "n_gold_artifact": 25,
+   "n_gold_real": 35,
+   "n_gold_unsure": 0,
+   "agreement": 0.35,
+   "agreement_confident": 0.35,
+   "abstention_rate": 0.0,
+   "format_failure_rate": 0.0,
+   "dangerous_miss": 0.24,
+   "lost_population": 0.9428571428571428,
+   "abstain_on_unsure": NaN,
+   "median_latency_s": 42.72,
+   "agreement_ci": [
+    0.23333333333333334,
+    0.4666666666666667
+   ],
+   "dangerous_miss_ci": [
+    0.08695652173913043,
+    0.43478260869565216
+   ],
+   "lost_population_ci": [
+    0.8529411764705882,
+    1.0
+   ],
+   "confusion": {
+    "ARTIFACT": {
+     "ARTIFACT": 19,
+     "REAL": 33,
+     "UNSURE": 0
+    },
+    "REAL": {
+     "ARTIFACT": 6,
+     "REAL": 2,
+     "UNSURE": 0
+    },
+    "ABSTAIN": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    },
+    "FAIL": {
+     "ARTIFACT": 0,
+     "REAL": 0,
+     "UNSURE": 0
+    }
+   }
+  }
+ },
+ "detector": {
+  "n_flagged": 27,
+  "artifact_recall": 0.4,
+  "false_flag_on_real": 0.4857142857142857,
+  "flagged_precision": 0.37037037037037035,
+  "n_gold_artifact": 25
+ },
+ "by_true_class": {
+  "gemini__gemini-3.5-flash-lite": {
+   "Ab_aggregates": {
+    "sum": 5,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 5,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 5,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 0,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 5,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 3,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "gemini__gemma-4-31b-it": {
+   "Ab_aggregates": {
+    "sum": 5,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 5,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 5,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 5,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 5,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 5,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 5,
+    "count": 5
+   }
+  },
+  "gemma3_4b": {
+   "Ab_aggregates": {
+    "sum": 0,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 0,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "gemma3_4b__v2": {
+   "Ab_aggregates": {
+    "sum": 5,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 5,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "gemma3_4b__v3": {
+   "Ab_aggregates": {
+    "sum": 5,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 5,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "llama3.1_8b": {
+   "Ab_aggregates": {
+    "sum": 0,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 0,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "llama3.1_8b__v2": {
+   "Ab_aggregates": {
+    "sum": 5,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 5,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "qwen2.5_7b": {
+   "Ab_aggregates": {
+    "sum": 0,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 0,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 0,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 0,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  },
+  "qwen2.5_7b__v2": {
+   "Ab_aggregates": {
+    "sum": 4,
+    "count": 5
+   },
+   "B_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD4_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "CD8_T": {
+    "sum": 0,
+    "count": 5
+   },
+   "Dead_cells": {
+    "sum": 5,
+    "count": 5
+   },
+   "Debris": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_B": {
+    "sum": 5,
+    "count": 5
+   },
+   "Doublet_T_Mono": {
+    "sum": 0,
+    "count": 5
+   },
+   "Monocytes": {
+    "sum": 0,
+    "count": 5
+   },
+   "NKT_like": {
+    "sum": 2,
+    "count": 5
+   },
+   "NK_cells": {
+    "sum": 0,
+    "count": 5
+   },
+   "Plasmablast": {
+    "sum": 0,
+    "count": 5
+   }
+  }
+ }
+}

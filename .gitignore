@@ -15,3 +15,10 @@ data/raw/*
 # Streamlit agent skills (environment-specific symlinks, auto-installed on `streamlit run`)
 .agents/skills/developing-with-streamlit
 .claude/skills/developing-with-streamlit
+
+# Evaluation: model answers on the REAL samples stay private until expert labels exist,
+# so the labelling can remain blind (see docs/eval-design.md). Progress logs are noise;
+# the scored results live in data/eval_synth*/runs/*.csv and results.json.
+data/eval/runs/
+data/eval*/run_*.log
+data/eval_synth/runs_incomplete/
