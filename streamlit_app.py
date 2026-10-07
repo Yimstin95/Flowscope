@@ -194,10 +194,18 @@ with st.sidebar:
         st.stop()
 
     if not any("ZZEB" in f for f in files):
+        # Describe what is actually bundled: the default pick may be the real FlowIO sample,
+        # not the synthetic one, so a blanket "synthetic data" notice would be misleading.
+        _bundled = []
+        if any("flowio-demo" in f for f in files):
+            _bundled.append("a real 13-colour PBMC sample (`flowio-demo/`, BD FACSAria)")
+        if any("synthetic" in os.path.basename(f) for f in files):
+            _bundled.append("a synthetic demo file")
         st.info(
-            "Running on synthetic demo data (no real FR-FCM-ZZEB sample present). "
-            "Drop the real data into `data/raw/FR-FCM-ZZEB/` for the real OMIP-024 sample.",
-            icon="🧪",
+            "Bundled data: " + (" and ".join(_bundled) or "none") + ". The larger OMIP-024 "
+            "dataset (FR-FCM-ZZEB, ~395 MB) is not included — upload your own FCS above, or "
+            "place it in `data/raw/FR-FCM-ZZEB/` when running locally.",
+            icon="📁",
         )
 
     # Upload widget: an uploaded file becomes a first-class, default-selected

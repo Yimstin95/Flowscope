@@ -2,6 +2,11 @@
 
 [![Tests](https://github.com/Yimstin95/Flowscope/actions/workflows/tests.yml/badge.svg)](https://github.com/Yimstin95/Flowscope/actions/workflows/tests.yml)
 
+**▶ Live demo: <https://flowscope-m9fypxfrapabymg6vs4tsy.streamlit.app/>** — no install, no key.
+Run the bundled real PBMC sample, and open *"How far can the AI step be trusted?"* at the top for the
+evaluation results. (Free hosting sleeps after inactivity; the first visit can take ~30–60 s to wake up.
+The public app has no AI key, so the AI report runs only locally with your own key.)
+
 FlowScope automates gating of flow cytometry data, flags cell populations that are
 statistically anomalous relative to the rest of a sample, and uses an AI agent to
 give a first-pass read on whether an anomaly looks like a technical artifact or a
